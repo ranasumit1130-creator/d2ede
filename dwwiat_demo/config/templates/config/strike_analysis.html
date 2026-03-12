@@ -372,7 +372,6 @@
     };
 
     const wizardState = {
-        droneConfigs: dronesData.map(d => ({ ...d })),
         base: rawBases[0] ? { ...rawBases[0] } : { name: 'Launch Base', lat: 0, lon: 0 },
         target: rawTargets[0] ? { ...rawTargets[0] } : { name: 'Target', lat: 0, lon: 0, details: { type: 'soft', ctr_cap_scale: '2' } },
         adsCount: ADS_COUNT,
@@ -383,99 +382,12 @@
         return Number.isFinite(n) ? n : fallback;
     }
 
-    function validateDrone(drone) {
-        return drone.name && Number(drone.count) > 0 && Number(drone.max_range_km) > 0 && Number(drone.cruise_speed_kmh) > 0;
-    }
-
-    function renderDroneStep() {
-        $bar.style.display = 'none';
-        _selected = null;
-        $ui.innerHTML = '';
-        const card = document.createElement('div');
-        card.className = 'sp-wizard-card';
-        card.innerHTML = `
-            <div class="sp-wizard-title">Step 1 / 3 · Drone Details</div>
-            <div id="sp-drone-list"></div>
-            <div class="sp-wizard-actions" style="justify-content:space-between;">
-                <button class="sp-btn-secondary" id="sp-add-drone">+ Add Drone</button>
-                <button class="sp-btn-primary" id="sp-next-target">Next: Target Profiling →</button>
-            </div>
-        `;
-        $ui.appendChild(card);
-        const $list = card.querySelector('#sp-drone-list');
-
-        function drawRows() {
-            $list.innerHTML = '';
-            wizardState.droneConfigs.forEach((drone, index) => {
-                const row = document.createElement('div');
-                row.className = 'sp-drone-row';
-                row.innerHTML = `
-                    <div class="sp-form-grid">
-                        <label>Name<input data-k="name" value="${drone.name || ''}"></label>
-                        <label>Role<select data-k="category"><option value="attack">Attack</option><option value="kamikaze">Kamikaze</option><option value="surveillance">Surveillance</option><option value="ew">EW</option></select></label>
-                        <label>Count<input type="number" min="1" data-k="count" value="${drone.count ?? 1}"></label>
-                        <label>Weight (kg)<input type="number" min="1" data-k="weight_kg" value="${drone.weight_kg ?? 100}"></label>
-                        <label>Cruise (km/h)<input type="number" min="1" data-k="cruise_speed_kmh" value="${drone.cruise_speed_kmh ?? 120}"></label>
-                        <label>Max Speed (km/h)<input type="number" min="1" data-k="max_speed_kmh" value="${drone.max_speed_kmh ?? 150}"></label>
-                        <label>Range (km)<input type="number" min="1" data-k="max_range_km" value="${drone.max_range_km ?? 100}"></label>
-                        <label>Ceiling (m)<input type="number" min="1" data-k="service_ceiling_m" value="${drone.service_ceiling_m ?? 2000}"></label>
-                        <label>Endurance (h)<input type="number" min="0.1" step="0.1" data-k="endurance_hours" value="${drone.endurance_hours ?? 2}"></label>
-                        <label>Payload (kg)<input type="number" min="0" step="0.1" data-k="payload_capacity_kg" value="${drone.payload_capacity_kg ?? 0}"></label>
-                        <label>Warhead TNT (kg)<input type="number" min="0" step="0.1" data-k="warhead_weight_kg" value="${drone.warhead_weight_kg ?? 0}"></label>
-                        <label>Guidance<select data-k="guidance_system"><option value="gps">GPS</option><option value="ai">AI</option><option value="ir">IR</option><option value="radar">Radar</option></select></label>
-                        <label>Stealth 1-10<input type="number" min="1" max="10" data-k="stealth_rating" value="${drone.stealth_rating ?? 5}"></label>
-                        <label>Anti-jam %<input type="number" min="0" max="100" data-k="anti_jam_resistance_pct" value="${drone.anti_jam_resistance_pct ?? 0}"></label>
-                        <label>Base Success %<input type="number" min="0" max="100" data-k="base_success_rate_pct" value="${drone.base_success_rate_pct ?? 60}"></label>
-                        <label>Evasion %<input type="number" min="0" max="100" data-k="evasion_probability_pct" value="${drone.evasion_probability_pct ?? 20}"></label>
-                    </div>
-                    <div class="sp-wizard-actions"><button class="sp-btn-secondary" data-remove="${index}">Remove</button></div>
-                `;
-                row.querySelector('[data-k="category"]').value = drone.category || 'attack';
-                row.querySelector('[data-k="guidance_system"]').value = drone.guidance_system || 'gps';
-                row.querySelectorAll('[data-k]').forEach(input => {
-                    input.addEventListener('input', () => {
-                        const k = input.dataset.k;
-                        const val = input.type === 'number' ? readNum(input, 0) : input.value;
-                        wizardState.droneConfigs[index][k] = val;
-                    });
-                });
-                row.querySelector(`[data-remove="${index}"]`).addEventListener('click', () => {
-                    wizardState.droneConfigs.splice(index, 1);
-                    drawRows();
-                });
-                $list.appendChild(row);
-            });
-        }
-
-        drawRows();
-
-        card.querySelector('#sp-add-drone').addEventListener('click', () => {
-            wizardState.droneConfigs.push({
-                id: Date.now(), name: 'New Drone', category: 'attack', count: 1,
-                weight_kg: 100, cruise_speed_kmh: 120, max_speed_kmh: 150, max_range_km: 100,
-                service_ceiling_m: 2000, endurance_hours: 2, payload_capacity_kg: 20, warhead_weight_kg: 10,
-                guidance_system: 'gps', stealth_rating: 5, anti_jam_resistance_pct: 0, ai_enabled: false,
-                base_success_rate_pct: 60, evasion_probability_pct: 20, radar_cross_section: 0.3,
-                unit_cost_usd: 10000, launch_cost_usd: 500,
-            });
-            drawRows();
-        });
-
-        card.querySelector('#sp-next-target').addEventListener('click', () => {
-            if (!wizardState.droneConfigs.length || !wizardState.droneConfigs.every(validateDrone)) {
-                showToast('Enter valid drone inputs before continuing.', false);
-                return;
-            }
-            renderTargetStep();
-        });
-    }
-
     function renderTargetStep() {
         const t = wizardState.target;
         const b = wizardState.base;
         $ui.innerHTML = `
             <div class="sp-wizard-card">
-                <div class="sp-wizard-title">Step 2 / 3 · Target Profiling</div>
+                <div class="sp-wizard-title">Step 1 / 2 · Base &amp; Target Profiling</div>
                 <div class="sp-form-grid">
                     <label>Target Name<input id="tp-name" value="${t.name || ''}"></label>
                     <label>Target Latitude<input id="tp-lat" type="number" step="0.0001" value="${t.lat ?? 0}"></label>
@@ -488,14 +400,12 @@
                     <label>Base Longitude<input id="bp-lon" type="number" step="0.0001" value="${b.lon ?? 0}"></label>
                 </div>
                 <div class="sp-wizard-actions">
-                    <button class="sp-btn-secondary" id="tp-back">← Back</button>
                     <button class="sp-btn-primary" id="tp-next">Run Formation Maths →</button>
                 </div>
             </div>
         `;
         document.getElementById('tp-type').value = t.details?.type || 'soft';
 
-        document.getElementById('tp-back').addEventListener('click', renderDroneStep);
         document.getElementById('tp-next').addEventListener('click', () => {
             const nextTarget = {
                 ...wizardState.target,
@@ -537,7 +447,7 @@
         const rawTarget = wizardState.target;
         const distKm = haversine(rawBase.lat, rawBase.lon, rawTarget.lat, rawTarget.lon);
         const engTarget = normaliseTarget(rawTarget, wizardState.adsCount);
-        const inventory = expandInventory(wizardState.droneConfigs);
+        const inventory = expandInventory(dronesData);
         const normBase = { ...rawBase, latitude: rawBase.lat, longitude: rawBase.lon };
         const formations = suggestFormations(engTarget, inventory, distKm);
 
@@ -576,7 +486,7 @@
         if (!dronesData.length) { showError('No drone assets found.'); return; }
         $loading.style.display = 'none';
         $ui.style.display = 'block';
-        renderDroneStep();
+        renderTargetStep();
     }
 
     init();
